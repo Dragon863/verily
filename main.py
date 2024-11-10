@@ -53,7 +53,7 @@ class MailHandler:
             if code:
                 print("Found code:", code)
                 cursor.execute(
-                    "INSERT INTO codes (code) VALUES (?, ?)",
+                    "INSERT INTO codes (code, email) VALUES (?, ?)",
                     (code, envelope.mail_from.split("@")[0]),
                 )
                 conn.commit()
