@@ -4,6 +4,7 @@ services:
   app:
     image: python:3.11
     working_dir: /app
+    restart: unless-stopped
     volumes:
       - .:/app
     command: sh -c "pip install -r requirements.txt && python main.py"
