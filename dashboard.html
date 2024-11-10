@@ -80,7 +80,11 @@
                 codesList.insertBefore(li, codesList.firstChild);
             }
 
-            const ws = new WebSocket(`ws://${window.location.host}/ws`);
+            var wssProtocol = "ws";
+            if (window.location.protocol === "https:") {
+                wssProtocol = "wss";
+            }
+            const ws = new WebSocket(`${wssProtocol}://${window.location.host}/ws`);
 
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
