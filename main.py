@@ -13,7 +13,7 @@ cursor = conn.cursor()
 def init_db():
     print("DB init")
     cursor.execute(
-        "CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY, email TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)"
+        "CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY, email TEXT)"
     )
     conn.commit()
 
@@ -50,7 +50,7 @@ class MailHandler:
             code = find_first_eight_digit_number(plain_text_part)
             if code:
                 cursor.execute(
-                    "INSERT OR IGNORE INTO codes (code, email, timestamp) VALUES (?, ?, CURRENT_TIMESTAMP)",
+                    "INSERT OR IGNORE INTO codes (code, email) VALUES (?, ?)",
                     (code, envelope.rcpt_tos.split("@")[0]),
                 )
                 conn.commit()
@@ -67,7 +67,7 @@ async def websocket_handler(request):
     await ws.prepare(request)
     connected_clients.add(ws)
 
-    cursor.execute("SELECT * FROM codes ORDER BY timestamp DESC LIMIT 10")
+    cursor.execute("SELECT * FROM codes ORDER BY code DESC LIMIT 10")
     codes = cursor.fetchall()
     await ws.send_str(json.dumps({"initial_codes": codes}))
 
