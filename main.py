@@ -3,6 +3,8 @@ from aiosmtpd.controller import Controller
 from email import message_from_bytes
 import re
 import sqlite3
+from aiohttp import web
+import json
 
 conn = sqlite3.connect("codes.db", check_same_thread=False)
 cursor = conn.cursor()
@@ -17,9 +19,7 @@ def init_db():
 
 def find_first_eight_digit_number(input_string: str) -> str:
     match = re.search(r"\b\d{8}\b", input_string)
-    if match:
-        return match.group(0)
-    return None
+    return match.group(0) if match else None
 
 
 class MailHandler:
@@ -36,34 +36,74 @@ class MailHandler:
             "dragon863.dev@gmail.com",
             "danielbenge@proton.me",
         ]:
+            print("Mail from not in allowed list")
             return "550 not relaying from that domain"
 
-        print(envelope.mail_from.split("@")[0])
-        print("Message for %s" % envelope.rcpt_tos)
-        plain_text_part = None
         email_message = message_from_bytes(envelope.content)
+        plain_text_part = None
         for part in email_message.walk():
             if part.get_content_type() == "text/plain":
                 plain_text_part = part.get_payload(decode=True).decode("utf-8")
                 break
+
         if plain_text_part:
-            print("Plain text content:")
-            print(plain_text_part)
             code = find_first_eight_digit_number(plain_text_part)
             if code:
-                print("Found code:", code)
                 cursor.execute(
-                    "INSERT INTO codes (code, email) VALUES (?, ?)",
-                    (code, envelope.mail_from.split("@")[0]),
+                    "INSERT OR IGNORE INTO codes (code, email) VALUES (?, ?)",
+                    (code, envelope.rcpt_tos.split("@")[0]),
                 )
                 conn.commit()
-            else:
-                print("No code found")
+                await notify_clients(code, envelope.rcpt_tos.split("@")[0])
 
         return "250 Message accepted for delivery"
+
+
+connected_clients = set()
+
+
+async def websocket_handler(request):
+    ws = web.WebSocketResponse()
+    await ws.prepare(request)
+    connected_clients.add(ws)
+
+    cursor.execute("SELECT * FROM codes ORDER BY rowid DESC")
+    codes = cursor.fetchall()
+    await ws.send_str(json.dumps({"initial_codes": codes}))
+
+    try:
+        async for msg in ws:
+            pass
+    finally:
+        connected_clients.remove(ws)
+    return ws
+
+
+async def notify_clients(code, email):
+    message = json.dumps({"new_code": {"code": code, "email": email}})
+    for ws in connected_clients:
+        await ws.send_str(message)
+
+
+async def index(request):
+    return web.FileResponse("dashboard.html")
+
+
+async def init_app():
+    app = web.Application()
+    app.add_routes(
+        [
+            web.get("/ws", websocket_handler),  # WebSocket route for live updates
+            web.get("/", index),  # Serve the HTML page
+        ]
+    )
+    return app
 
 
 init_db()
 controller = Controller(MailHandler(), hostname="0.0.0.0", port=25)
 controller.start()
+
+app = init_app()
+web.run_app(app, host="0.0.0.0", port=8080)
 asyncio.get_event_loop().run_forever()

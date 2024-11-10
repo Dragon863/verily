@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Code Dashboard</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+            }
+
+            #codes {
+                list-style-type: none;
+                padding: 0;
+            }
+
+            li {
+                margin: 5px 0;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            @media screen and (max-width: 750px) {
+                li {
+                    width: 100vw;
+                }
+
+                #flag {
+                    display: none;
+                }
+            }
+
+            @media screen and (min-width: 750px) {
+                li {
+                    width: 65vw;
+                }
+
+            }
+
+            li.new {
+                background-color: #e0f7e9;
+            }
+
+            h1 {
+                text-align: center;
+                font-size: 3em;
+                z-index: 2;
+            }
+
+            h3 {
+                text-align: center;
+                font-weight: normal;
+                z-index: 2;
+            }
+
+            #flag {
+                z-index: -1;
+            }
+        </style>
+    </head>
+
+    <body>
+        <a href="https://hackclub.com/"><img style="position: absolute; top: 0; left: 10px; border: 0; width: 180px;"
+                src="https://assets.hackclub.com/flag-orpheus-top.svg" alt="Hack Club" id="flag" /></a>
+        <h1>Received Verification Codes</h1>
+        <h3>(Change your email to your college one later in settings)</h3>
+        <ul id="codes"></ul>
+
+        <script>
+            const codesList = document.getElementById("codes");
+
+            function addCodeToTop(code, email, isNew = false) {
+                const li = document.createElement("li");
+                li.textContent = `Code: ${code} (for ${email})`;
+                if (isNew) li.classList.add("new");
+                codesList.insertBefore(li, codesList.firstChild);
+            }
+
+            const ws = new WebSocket(`ws://${window.location.host}/ws`);
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.initial_codes) {
+                    data.initial_codes.forEach(({ 0: code, 1: email }) => addCodeToTop(code, email));
+                }
+
+                if (data.new_code) {
+                    const { code, email } = data.new_code;
+                    addCodeToTop(code, email, true);
+                }
+            };
+
+            ws.onopen = () => console.log("Connected to WebSocket for code updates.");
+            ws.onclose = () => console.log("WebSocket connection closed.");
+        </script>
+    </body>
+
+</html>
