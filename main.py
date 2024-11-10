@@ -12,7 +12,7 @@ cursor = conn.cursor()
 
 def init_db():
     cursor.execute(
-        "CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY, email TEXT)"
+        "CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY, email TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)"
     )
     conn.commit()
 
@@ -67,7 +67,7 @@ async def websocket_handler(request):
     await ws.prepare(request)
     connected_clients.add(ws)
 
-    cursor.execute("SELECT * FROM codes ORDER BY rowid DESC")
+    cursor.execute("SELECT * FROM codes ORDER BY timestamp DESC LIMIT 10")
     codes = cursor.fetchall()
     await ws.send_str(json.dumps({"initial_codes": codes}))
 
