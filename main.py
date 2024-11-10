@@ -50,7 +50,7 @@ class MailHandler:
             code = find_first_eight_digit_number(plain_text_part)
             if code:
                 cursor.execute(
-                    "INSERT OR IGNORE INTO codes (code, email) VALUES (?, ?)",
+                    "INSERT OR IGNORE INTO codes (code, email, timestamp) VALUES (?, ?, CURRENT_TIMESTAMP)",
                     (code, envelope.rcpt_tos.split("@")[0]),
                 )
                 conn.commit()
