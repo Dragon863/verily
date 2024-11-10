@@ -9,7 +9,9 @@ cursor = conn.cursor()
 
 
 def init_db():
-    cursor.execute("CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY)")
+    cursor.execute(
+        "CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY, email TEXT)"
+    )
     conn.commit()
 
 
@@ -50,7 +52,10 @@ class MailHandler:
             code = find_first_eight_digit_number(plain_text_part)
             if code:
                 print("Found code:", code)
-                cursor.execute("INSERT INTO codes (code) VALUES (?)", (code,))
+                cursor.execute(
+                    "INSERT INTO codes (code) VALUES (?)",
+                    (code, envelope.mail_from.split("@")[0]),
+                )
                 conn.commit()
             else:
                 print("No code found")
