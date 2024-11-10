@@ -25,8 +25,10 @@ def find_first_eight_digit_number(input_string: str) -> str:
 
 class MailHandler:
     async def handle_RCPT(self, server, session, envelope, address, rcpt_options):
-        if not address.endswith("@mail.danieldb.uk"):
-            print("Address does not end with @mail.danieldb.uk")
+        if not address.endswith("@mail.danieldb.uk") and not address.endswith(
+            "@runshaw.dino.icu"
+        ):
+            print("Address does not end with @mail.danieldb.uk or @runshaw.dino.icu")
             return "550 not relaying to that domain"
         envelope.rcpt_tos.append(address)
         return "250 OK"
