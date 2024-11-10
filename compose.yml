@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  app:
+    image: python:3.11
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: sh -c "pip install -r requirements.txt && python main.py"
+    ports:
+      - "8080:8080"
+      - "25:25"

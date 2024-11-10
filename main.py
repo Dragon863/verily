@@ -11,6 +11,7 @@ cursor = conn.cursor()
 
 
 def init_db():
+    print("DB init")
     cursor.execute(
         "CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY, email TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)"
     )
@@ -34,7 +35,6 @@ class MailHandler:
         if not envelope.mail_from in [
             "noreply@github.com",
             "dragon863.dev@gmail.com",
-            "danielbenge@proton.me",
         ]:
             print("Mail from not in allowed list")
             return "550 not relaying from that domain"
