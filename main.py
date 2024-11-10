@@ -51,10 +51,10 @@ class MailHandler:
             if code:
                 cursor.execute(
                     "INSERT OR IGNORE INTO codes (code, email) VALUES (?, ?)",
-                    (code, envelope.rcpt_tos.split("@")[0]),
+                    (code, envelope.rcpt_tos[0].split("@")[0]),
                 )
                 conn.commit()
-                await notify_clients(code, envelope.rcpt_tos.split("@")[0])
+                await notify_clients(code, envelope.rcpt_tos[0].split("@")[0])
 
         return "250 Message accepted for delivery"
 
