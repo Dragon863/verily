@@ -6,16 +6,55 @@ import sqlite3
 from aiohttp import web
 import json
 
-conn = sqlite3.connect("codes.db", check_same_thread=False)
-cursor = conn.cursor()
+class EmailAddress:
+    def __init__(self, address: str):
+        self.address = address
+    
+class SenderAddress(EmailAddress):
+    def __init__(self, address):
+        super().__init__(address)
+        self.__validSenders = [
+            "noreply@github.com",
+            "dragon863.dev@gmail.com"
+        ]
 
+    def is_valid(self) -> bool:
+        return self.address in self.__validSenders
+    
+class ReceiverAddress(EmailAddress):
+    def __init__(self, address):
+        super().__init__(address)
+    
+    def is_valid(self) -> bool:
+        return self.address.endswith("@mail.danieldb.uk") or self.address.endswith("@runshaw.dino.icu")
 
-def init_db():
-    print("DB init")
-    cursor.execute(
-        "CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY, email TEXT)"
-    )
-    conn.commit()
+class Database:
+    def __init__(self, filename: str="codes.db"):
+        self.__conn = sqlite3.connect(filename, check_same_thread=False)
+        self.__cursor = self.__conn.cursor()
+
+    def init_db(self) -> None:
+        print("DB init")
+        self.__cursor.execute(
+            "CREATE TABLE IF NOT EXISTS codes (code TEXT PRIMARY KEY, email TEXT)"
+        )
+        self.__conn.commit()
+        return
+
+    def writeData(self, code: str, email: str) -> None:
+        self.__cursor.execute(
+            "INSERT OR IGNORE INTO codes (code, email) VALUES (?, ?)",
+            (code, email),
+        )
+        self.__conn.commit()
+    
+    def fetchCodes(self) -> list:
+        self.__cursor.execute("SELECT * FROM codes ORDER BY code DESC LIMIT 10")
+        codes = self.__cursor.fetchall()
+        return codes
+    
+db = Database("codes.db")
+db.init_db()
 
 
 def find_first_eight_digit_number(input_string: str) -> str:
@@ -25,20 +64,17 @@ def find_first_eight_digit_number(input_string: str) -> str:
 
 class MailHandler:
     async def handle_RCPT(self, server, session, envelope, address, rcpt_options):
-        if not address.endswith("@mail.danieldb.uk") and not address.endswith(
-            "@runshaw.dino.icu"
-        ):
-            print("Address does not end with @mail.danieldb.uk or @runshaw.dino.icu")
+        receiver = ReceiverAddress(address=address)
+        if not receiver.is_valid():
+            print("Receiver does not end with a valid extension")
             return "550 not relaying to that domain"
         envelope.rcpt_tos.append(address)
         return "250 OK"
 
     async def handle_DATA(self, server, session, envelope):
-        if not envelope.mail_from in [
-            "noreply@github.com",
-            "dragon863.dev@gmail.com",
-        ]:
-            print("Mail from not in allowed list")
+        sender = SenderAddress(envelope.mail_from)
+        if not sender.is_valid():
+            print("email from not in allowed list")
             return "550 not relaying from that domain"
 
         email_message = message_from_bytes(envelope.content)
@@ -51,13 +87,11 @@ class MailHandler:
         if plain_text_part:
             code = find_first_eight_digit_number(plain_text_part)
             if code:
-                cursor.execute(
-                    "INSERT OR IGNORE INTO codes (code, email) VALUES (?, ?)",
-                    (code, envelope.rcpt_tos[0].split("@")[0]),
-                )
-                conn.commit()
-                await notify_clients(code, envelope.rcpt_tos[0].split("@")[0])
+                firstEmailPart = envelope.rcpt_tos[0].split("@")[0]
+                db.writeData(code, firstEmailPart)
+                await notify_clients(code, firstEmailPart)
 
+        print("Accepted email")
         return "250 Message accepted for delivery"
 
 
@@ -69,8 +103,7 @@ async def websocket_handler(request):
     await ws.prepare(request)
     connected_clients.add(ws)
 
-    cursor.execute("SELECT * FROM codes ORDER BY code DESC LIMIT 10")
-    codes = cursor.fetchall()
+    codes = db.fetchCodes()
     await ws.send_str(json.dumps({"initial_codes": codes}))
 
     try:
@@ -96,14 +129,13 @@ async def init_app():
     app.add_routes(
         [
             web.get("/ws", websocket_handler),  # WebSocket route for live updates
-            web.get("/", index),  # Serve the HTML page
+            web.get("/", index),  # Serve the dashboard
         ]
     )
     return app
 
 
-init_db()
-controller = Controller(MailHandler(), hostname="0.0.0.0", port=25)
+controller = Controller(MailHandler(), hostname="0.0.0.0", port=25) # 0.0.0.0 is all interfaces, port 25 sometimes needs sudo :/
 controller.start()
 
 app = init_app()
